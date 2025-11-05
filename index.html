@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot com Análise de Sentimento e Visão (DeepFace)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column; 
+        }
+        #webcam-container {
+            width: 500px;
+            max-width: 90%;
+            margin-bottom: 10px;
+            background: #fff;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        #webcam-feed {
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+            transform: scaleX(-1); /* Espelha a webcam */
+        }
+        #snapshot-canvas {
+            display: none;
+        }
+        .status-display {
+            font-size: 16px;
+            color: #555;
+            background-color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 5px;
+            width: 500px;
+            max-width: 90%;
+            text-align: center;
+        }
+        #chat-container {
+            width: 500px;
+            max-width: 90%;
+            height: 60vh;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        #chat-box {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 20px;
+            line-height: 1.4;
+            max-width: 80%;
+        }
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        .ai-message {
+            background-color: #e9e9eb;
+            color: #333;
+            align-self: flex-start;
+            margin-right: auto;
+        }
+        #input-area {
+            display: flex;
+            padding: 20px;
+        }
+        #user-input {
+            flex-grow: 1;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            padding: 10px 15px;
+            font-size: 16px;
+        }
+        #send-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="webcam-container">
+        <video id="webcam-feed" autoplay muted playsinline>Webcam não disponível.</video>
+        <canvas id="snapshot-canvas"></canvas>
+    </div>
+
+    <div id="sentiment-display" class="status-display">Sentimento (Texto): (aguardando...)</div>
+    <div id="visual-emotion-display" class="status-display">Emoção (Visual): (aguardando...)</div>
+
+    <div id="chat-container">
+        <div id="chat-box">
+            <div class="message ai-message">Olá! Minha webcam está ativada. Como posso ajudar?</div>
+        </div>
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="Digite sua mensagem...">
+            <button id="send-button">→</button>
+        </div>
+    </div>
+
+    <script>
+        // Pega os elementos do HTML
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const sentimentDisplay = document.getElementById('sentiment-display');
+        const visualEmotionDisplay = document.getElementById('visual-emotion-display');
+        const webcamFeed = document.getElementById('webcam-feed');
+        const snapshotCanvas = document.getElementById('snapshot-canvas');
+        let videoStream = null;
+        let conversationHistory = [];
+
+        async function setupWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                videoStream = stream;
+                webcamFeed.srcObject = stream;
+                visualEmotionDisplay.textContent = "Emoção (Visual): Webcam Ativada.";
+            } catch (err) {
+                console.error("Erro ao acessar a webcam: ", err);
+                visualEmotionDisplay.textContent = "Emoção (Visual): Webcam não permitida.";
+            }
+        }
+
+        function takeSnapshot() {
+            if (!videoStream) {
+                console.warn("Stream da webcam não disponível.");
+                return null;
+            }
+            const context = snapshotCanvas.getContext('2d');
+            snapshotCanvas.width = webcamFeed.videoWidth;
+            snapshotCanvas.height = webcamFeed.videoHeight;
+            context.translate(snapshotCanvas.width, 0);
+            context.scale(-1, 1);
+            context.drawImage(webcamFeed, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+            return snapshotCanvas.toDataURL('image/jpeg', 0.8); 
+        }
+
+        window.addEventListener('load', setupWebcam);
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        async function sendMessage() {
+            const messageText = userInput.value.trim();
+            if (messageText === '') return;
+
+            const imageData = takeSnapshot();
+
+            addMessageToChat('user', messageText);
+            userInput.value = '';
+            sentimentDisplay.textContent = 'Sentimento (Texto): analisando...';
+            visualEmotionDisplay.textContent = 'Emoção (Visual): analisando...';
+            conversationHistory.push({ role: "user", content: messageText });
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        message: messageText,
+                        history: conversationHistory,
+                        image_data: imageData
+                    }),
+                });
+
+                if (!response.ok) {
+                    conversationHistory.pop(); 
+                    throw new Error('Erro na resposta do servidor.');
+                }
+
+                const data = await response.json();
+
+                addMessageToChat('ai', data.response);
+                conversationHistory.push({ role: "assistant", content: data.response });
+
+                if (data.sentiment) {
+                    sentimentDisplay.textContent = `Sentimento (Texto): ${traduzirSentimento(data.sentiment)}`;
+                }
+                
+                if (data.visual_emotion) {
+                    visualEmotionDisplay.textContent = `Emoção (Visual): ${traduzirEmocaoVisual(data.visual_emotion)}`;
+                }
+
+            } catch (error) {
+                console.error('Erro ao enviar mensagem:', error);
+                addMessageToChat('ai', 'Desculpe, ocorreu um erro ao conectar ao servidor.');
+                sentimentDisplay.textContent = 'Sentimento (Texto): (erro)';
+                visualEmotionDisplay.textContent = 'Emoção (Visual): (erro)';
+
+                if (conversationHistory.length > 0 && conversationHistory[conversationHistory.length - 1].role === "user") {
+                    conversationHistory.pop();
+                }
+            }
+        }
+
+        function addMessageToChat(role, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', role === 'user' ? 'user-message' : 'ai-message');
+            messageDiv.textContent = text;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function traduzirSentimento(sentiment) {
+            const mapa = {
+                'positive': 'Positivo 🙂',
+                'negative': 'Negativo 😞',
+                'neutral': 'Neutro 😐',
+                'mixed': 'Misto 🤔',
+                'erro na análise': 'Erro ❌',
+                'desconhecido': '?'
+            };
+            return mapa[sentiment] || sentiment;
+        }
+        
+        // Mapa de tradução para as emoções do DeepFace
+        function traduzirEmocaoVisual(emotion) {
+            const mapa = {
+                'happy': 'Felicidade 😊',
+                'sad': 'Tristeza 😢',
+                'angry': 'Raiva 😠',
+                'neutral': 'Neutro 😐',
+                'surprise': 'Surpresa 😮',
+                'disgust': 'Desgosto 🤢',
+                'fear': 'Medo 😨',
+                'erro na análise': 'Erro ❌',
+                'nenhum rosto': 'Nenhum rosto 👤',
+                'desconhecido': '?'
+            };
+            return mapa[emotion] || emotion;
+        }
+    </script>
+
+</body>
+</html>

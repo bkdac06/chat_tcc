@@ -1,0 +1,6 @@
+flask
+openai
+python-dotenv
+azure-ai-textanalytics
+deepface
+opencv-python-headless
