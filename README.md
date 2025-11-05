@@ -6,15 +6,15 @@ Como Usar:
 
  2) Crie um ambiente virtual:
 ```sh
-- python -m venv .venv
+python -m venv .venv
 ```
  3) Ative o ambiente:
 
-    - Mac: 
+   - Mac: 
 ```sh
 source .venv/bin/activate
 ```
-    - Windowns: 
+   - Windowns: 
 ```sh
 .\.venv\Scripts\activate
 ```
@@ -34,5 +34,5 @@ source .venv/bin/activate
 ```
 
  5) Baixe as bibliotecas necessárias: pip install -r requirements.txt
- 
+
  6) Rode o app: python app.py
