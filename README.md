@@ -33,6 +33,12 @@ AZURE_LANGUAGE_KEY=SUA_CHAVE_AZURE_AI
 AZURE_LANGUAGE_ENDPOINT=SEU_ENDPOINT_AZURE_AI
 ```
 
-5) Baixe as bibliotecas necessárias: pip install -r requirements.txt
+5) Baixe as bibliotecas necessárias: 
+```sh
+pip install -r requirements.txt
+```
 
-6) Rode o app: python app.py
+6) Rode o app: 
+```sh
+python app.py
+```
