@@ -10,11 +10,11 @@ python -m venv .venv
 ```
 3) Ative o ambiente:
 
-   - Mac: 
+- Mac: 
 ```sh
 source .venv/bin/activate
 ```
-   - Windowns: 
+- Windowns: 
 ```sh
 .\.venv\Scripts\activate
 ```
