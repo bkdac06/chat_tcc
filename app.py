@@ -1,6 +1,6 @@
 import os
 from flask import Flask, request, jsonify, send_from_directory
-from openai import AzureOpenAI
+from openai import AzureOpenAI, OpenAI
 from dotenv import load_dotenv
 import numpy as np # Necessário para processar a imagem
 
@@ -20,7 +20,7 @@ load_dotenv()
 # Inicializa o Flask
 app = Flask(__name__)
 
-# === 1. Configuração do Cliente Azure OpenAI (LLM) ===
+""" # === 1. Configuração do Cliente Azure OpenAI (LLM) ===
 try:
     OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
     OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
@@ -37,6 +37,22 @@ try:
     print("Cliente Azure OpenAI inicializado.")
 except Exception as e:
     print(f"Erro na configuração do OpenAI: {e}")
+    openai_client = None """
+
+# === NOVO: Configuração do Cliente LOCAL (Ollama) ===
+try:
+    # O Ollama não precisa de chave de API por padrão
+    # A URL base é o padrão do Ollama
+    openai_client = OpenAI(
+        base_url='http://localhost:11434/v1',
+        api_key='ollama' # (O valor real não importa, mas não pode ser nulo)
+    )
+    # Define o nome do modelo que você baixou no Ollama
+    openai_deployment_name = "deepseek-r1:14b" # <-- MUDE ISSO para o modelo que você baixou
+    
+    print(f"Cliente OpenAI (Local/Ollama) inicializado. Usando modelo: {openai_deployment_name}")
+except Exception as e:
+    print(f"Erro ao inicializar o cliente local OpenAI: {e}")
     openai_client = None
 
 # === 2. Configuração do Cliente Azure Language (Análise de Texto) ===
@@ -192,7 +208,7 @@ def chat():
         ] + history
 
         response = openai_client.chat.completions.create(
-            model=openai_deployment_name,
+            model=openai_deployment_name, # <-- Usará "llama3:8b" (ou o que você definiu)
             messages=messages_for_api,
             max_tokens=1000,
             temperature=0.7
@@ -207,7 +223,7 @@ def chat():
         })
 
     except Exception as e:
-        print(f"Erro na API do Azure OpenAI: {e}")
+        print(f"Erro na API do OpenAI (local): {e}")
         return jsonify({"error": str(e)}), 500
 
 # Inicia o servidor Flask
